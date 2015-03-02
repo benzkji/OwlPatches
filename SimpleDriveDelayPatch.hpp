@@ -33,42 +33,56 @@
 
 #define REQUEST_BUFFER_SIZE 32768
 
-class SimpleDelayPatch : public Patch {
+class SimpleDriveDelayPatch : public Patch {
 private:
   CircularBuffer delayBuffer;
+
+    
   int32_t delay;
+
 public:
-  SimpleDelayPatch() : delay(0)
-  {
+  SimpleDriveDelayPatch() : delay(0)
+    {
     registerParameter(PARAMETER_A, "Delay");
     registerParameter(PARAMETER_B, "Feedback");
     registerParameter(PARAMETER_C, "Drive");
-    registerParameter(PARAMETER_D, "Wet/Dry");
+    registerParameter(PARAMETER_D, "Wet/Dry ");
     AudioBuffer* buffer = createMemoryBuffer(1, REQUEST_BUFFER_SIZE);
     delayBuffer.initialise(buffer->getSamples(0), buffer->getSize());
-  }
+      }
   void processAudio(AudioBuffer &buffer)
   {
-    float delayTime, feedback, wetDry,drive, offset;
+    float delayTime, feedback, wetDry,drive;
     delayTime = getParameterValue(PARAMETER_A);
     feedback  = getParameterValue(PARAMETER_B);
     drive     = getParameterValue(PARAMETER_C);
     wetDry    = getParameterValue(PARAMETER_D);
      
-      offset = 1;
-      offset /= 10;
-      drive += 0.03;
-      drive *= 40;
+     
+       drive += 0.03;
+        drive *= 40;
+
       
-    int32_t newDelay;
+    int newDelay;
     newDelay = delayTime * (delayBuffer.getSize()-1);
       
     float* x = buffer.getSamples(0);
+    float y = 0;
+      
     int size = buffer.getSize();
-    for (int n = 0; n < size; n++)
-    {
-      x[n] = (delayBuffer.read(delay)*(size-1-n) + delayBuffer.read(newDelay)*n)*wetDry/size + (1.f - wetDry) * x[n];  // crossfade for wet/dry balance
-        delayBuffer.write(feedback * nonLinear((x[n]+offset)*drive));
+    for (int n = 0; n < size; n++)     {
+        y = (delayBuffer.read(delay)*(size-1-n) + delayBuffer.read(newDelay)*n)/size + x[n];
+   
+        y = nonLinear(y * 1.5);
+        
+        delayBuffer.write(feedback * y);
+        
+        y = (nonLinear(y * drive)) * 0.25;
+      
+        
+        x[n] = (y *  (1 - wetDry)) +  (x[n] * wetDry);
+
+      
     }
     delay=newDelay;
   }

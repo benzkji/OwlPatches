@@ -17,9 +17,11 @@
  You should have received a copy of the GNU General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  
- */
-
-/* created by the OWL team 2013 */
+ 
+ Simple Delay with a Tone setting similar to the Big Muff Tone stage.
+ Created by the OWL team 2014 
+ 
+*/
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,151 +33,112 @@
 
 #include "StompBox.h"
 #include "CircularBuffer.hpp"
-#define REQUEST_BUFFER_SIZE 32768
 #include <math.h>
 
-class LpfDelayPatch : public Patch {    
-private:
-  CircularBuffer delayBuffer;
-  float time, olddelaySamples, dSamples;
-public:    
-  LpfDelayPatch() : x1(0.0f), x2(0.0f), y1(0.0f), y2(0.0f), olddelaySamples(0.0f) {
-    AudioBuffer* buffer = createMemoryBuffer(1, REQUEST_BUFFER_SIZE);
-    delayBuffer.initialise(buffer->getSamples(0), buffer->getSize());
-    registerParameter(PARAMETER_A, "Delay", "Delay time");
-    registerParameter(PARAMETER_B, "Feedback", "Delay loop feedback");
-    registerParameter(PARAMETER_C, "Fc", "Filter cutoff frequency");
-    registerParameter(PARAMETER_D, "Dry/Wet", "Dry/wet mix");
-    setCoeffs(getLpFreq()/getSampleRate(), 0.6f);
-  }    
-  ~LpfDelayPatch() {}
-        
-  void initLpf (){        
-    for (int i=0 ; i<3 ; i++){
-      pa[i] = a[i];
-      pb[i] = b[i];
-    }
-  }
-    
-  void setCoeffs(float normalizedFrequency, float Q) {
-    // Compute the filters coefficients a[i] and b[i];
-    float omega, c, alpha;
-    omega = 2*M_PI*normalizedFrequency ;
-    c = cosf(omega) ;
-    alpha = sinf(omega)/(2*Q);
-        
-    b[0]=(1-c)/2;
-    b[1]=1-c;
-    b[2]=b[0];
-    a[0]=1+alpha;
-    a[1]=-2*c;
-    a[2]=1-alpha;
-  }
-    
-  // mapping between knob and normalized frequency
-  float getLpFreq(){
-    float f;
-    f = getParameterValue(PARAMETER_C);
-    // param_B = 0    <-> f=0.001
-    // param_B = 1    <-> f=0.5
-    // return powf(10, -3*(1-f))/2.1;
-    return (f*f*f/4)+0.0001;
-  }
-    
-  bool paramChange(){
-    if (a[0]-pa[0]+a[1]-pa[1]+a[2]-pa[2]+b[0]-pb[0]+b[1]-pb[1]+b[2]-pb[2] == 0.0)
-      return false;
-    else
-      return true;
-  }
-    
-  void process(int numSamples, float* input, float* output){
-    // process a block of more than 2 samples. Basic implementation without coeffs interpolation.
+#define REQUEST_BUFFER_SIZE 32768
 
-    if (paramChange()) {
-      output[0] = (b[0]*input[0]+b[1]*x1+b[2]*x2-a[1]*y1-a[2]*y2)/a[0] ;
-      output[1] = (b[0]*input[1]+b[1]*input[0]+b[2]*x1-a[1]*output[0]-a[2]*y1)/a[0] ;
-      for (int i=2; i<numSamples; i++){
-	output[i] = (b[0]*input[i]+b[1]*input[i-1]+b[2]*input[i-2]-a[1]*output[i-1]-a[2]*output[i-2])/a[0] ;
-      }
-      // store values for next block
-      x1 = input[numSamples-1];
-      x2 = input[numSamples-2];
-      y1 = output[numSamples-1];
-      y2 = output[numSamples-2];
-    }
-    else { // we then need to interpolate the coefficients
-      int N=numSamples-1;
-      output[0] = (pb[0]*input[0]+pb[1]*x1+pb[2]*x2-pa[1]*y1-pa[2]*y2)/pa[0] ;
-      output[1] = (pb[0]*input[1]+pb[1]*input[0]+pb[2]*x1-pa[1]*output[0]-pa[2]*y1)/pa[0]*(N-1)/N ;
-      output[1] += (b[0]*input[1]+b[1]*input[0]+b[2]*x1-a[1]*output[0]-a[2]*y1)/a[0] / N;
-            
-            
-      float a1, a2, b0, b1, b2;
-      for (int i=2; i<numSamples; i++){
-	a1 = a[1]/a[0]*i+pa[1]/pa[0]*(N-i);
-	a2 = a[2]/a[0]*i+pa[2]/pa[0]*(N-i);
-	b0 = b[0]/a[0]*i+pb[0]/pa[0]*(N-i);
-	b1 = b[1]/a[0]*i+pb[1]/pa[0]*(N-i);
-	b2 = b[2]/a[0]*i+pb[2]/pa[0]*(N-i);
-                
-	output[i] = (b0*input[i]+b1*input[i-1]+b2*input[i-2]-a1*output[i-1]-a2*output[i-2])/N ;
-      }
-            
-      // store values for next block
-      x1 = input[numSamples-1];
-      x2 = input[numSamples-2];
-      y1 = output[numSamples-1];
-      y2 = output[numSamples-2];
-      pa[0]=a[0];
-      pa[1]=a[1];
-      pa[2]=a[2];
-      pb[0]=b[0];
-      pb[1]=b[1];
-      pb[2]=b[2];
-            
-    }
-  }
-    
-  void processAudio(AudioBuffer &buffer){
-    float y[getBlockSize()];
-    setCoeffs(getLpFreq(), 0.8f);
-    float delayTime = getParameterValue(PARAMETER_A); // get delay time value    
-    float feedback  = getParameterValue(PARAMETER_B); // get feedback value
-    float wetDry    = getParameterValue(PARAMETER_D); // get gain value
+class ToneBiquad {
 
-    if(abs(time - delayTime) < 0.01)
-      delayTime = time;
-    else
-      time = delayTime;
-        
-    float delaySamples = delayTime * (delayBuffer.getSize()-1);        
-    int size = buffer.getSize();
-    float* x = buffer.getSamples(0);
-    process(size, x, y);     // low pass filter for delay buffer
-    for(int n = 0; n < size; n++){
-        
-      //linear interpolation for delayBuffer index
-      dSamples = olddelaySamples + (delaySamples - olddelaySamples) * n / size;
-        
-      y[n] = y[n] + feedback * delayBuffer.read(dSamples);
-      x[n] = (1.f - wetDry) * x[n] + wetDry * y[n];  //crossfade for wet/dry balance
-      delayBuffer.write(x[n]);
+public:
+    ToneBiquad() {}
+    ~ToneBiquad() {}
+    void init(){
+        x1 = 0.f;
+        x2 = 0.f;
+        y1 = 0.f;
+        y2 = 0.f;
     }
-    olddelaySamples = delaySamples;
-  }
-    
+    void updateStateCoeffs(){
+        for (int i=0; i<3; i++) {
+            pa[i]=a[i];
+            pb[i]=b[i];
+        }
+    }
+    void setCoeffs(float fc, float fs) {
+        // Compute the filters coefficients a[i] and b[i]
+        float w = 2*M_PI*fc/fs;
+        float C = cosf(w);
+        float alpha = sin(w)/1.414f; // Q Butterworth
+        
+        // LPF 2nd order
+        b[0] = (1-C)/2;
+        b[1] = 1-C;
+        b[2] = b[0];
+        
+        a[0] = 1+alpha;
+        a[1] = -2*C;
+        a[2] = 1-alpha;
+    }
+    float processSample(float input, int numSamples,int i){
+        // process 1 sample at a time, with linear parameter interpolation between start and end of block
+        float a1, a2, b0, b1, b2;
+        a1 = a[1]/a[0]*i+pa[1]/pa[0]*(numSamples-i);
+        a2 = a[2]/a[0]*i+pa[2]/pa[0]*(numSamples-i);
+        b0 = b[0]/a[0]*i+pb[0]/pa[0]*(numSamples-i);
+        b1 = b[1]/a[0]*i+pb[1]/pa[0]*(numSamples-i);
+        b2 = b[2]/a[0]*i+pb[2]/pa[0]*(numSamples-i);
+        float output = (b0*input+b1*x1+b2*x2-a1*y1-a2*y2)/numSamples ;
+        // store values for biquad state
+        x2 = x1;
+        x1 = input;
+        y2 = y1;
+        y1 = output;
+        return output;
+    }
 private:
-  float a[3] ; // ai coefficients
-  float b[3] ; // bi coefficients
-  float pa[3] ; // previous ai coefficients
-  float pb[3] ; // previous bi coefficients
-  float x1, x2, y1, y2 ; // state variables to compute samples    
+    float a[3] ; // ai coefficients
+    float b[3] ; // bi coefficients
+    float pa[3] ; // ai coefficients
+    float pb[3] ; // bi coefficients
+    float x1, x2, y1, y2 ; // state variables to compute samples
 };
 
-#endif
+class LpfDelayPatch : public Patch {
 
+private:
+    CircularBuffer delayBuffer;
+    int delay;
+    float alpha, dryWet;
+    ToneBiquad filter;
 
+public:
+    LpfDelayPatch() : delay(0), alpha(0.04), dryWet(0.f)
+    {
+        registerParameter(PARAMETER_A, "Delay");
+        registerParameter(PARAMETER_B, "Feedback");
+        registerParameter(PARAMETER_C, "Cutoff");
+        registerParameter(PARAMETER_D, "Dry/Wet");
+        registerParameter(PARAMETER_E, "Cutoff Modulation");
+        AudioBuffer* buffer = createMemoryBuffer(1, REQUEST_BUFFER_SIZE);
+        delayBuffer.initialise(buffer->getSamples(0), buffer->getSize());
+        filter.init();
+        filter.setCoeffs(getParameterValue(PARAMETER_C), getSampleRate()); // Tone
+        filter.updateStateCoeffs();
+    }
+    void processAudio(AudioBuffer &buffer)
+    {
+        float delayTime, feedback, fc, dly;
+        delayTime = 0.05+0.95*getParameterValue(PARAMETER_A);
+        feedback  = getParameterValue(PARAMETER_B);
+        fc = 2*powf(10,3*getParameterValue(PARAMETER_C)*(1-getParameterValue(PARAMETER_E))+1)+40;
+        filter.setCoeffs(fc, getSampleRate());
+        
+        int32_t newDelay;
+        newDelay = alpha*delayTime*(delayBuffer.getSize()-1) + (1-alpha)*delay; // Smoothing
+        dryWet = alpha*getParameterValue(PARAMETER_D) + (1-alpha)*dryWet;       // Smoothing
+        
+        float* x = buffer.getSamples(0);
+        int size = buffer.getSize();
+        for (int n = 0; n < size; n++)
+        {
+            dly = (delayBuffer.read(delay)*(size-1-n) + delayBuffer.read(newDelay)*n)/size;
+            delayBuffer.write(feedback * dly + x[n]);  //filter.processSample(x[n], size, n));
+            x[n] = filter.processSample(dly, size, n)*dryWet + (1.f - dryWet) * x[n];  // dry/wet
+        }
+        delay=newDelay;
+        filter.updateStateCoeffs();
+    }
+};
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+#endif   // __LpfDelayPatch_hpp__
 
