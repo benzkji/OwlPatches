@@ -6,7 +6,7 @@
 */
 
 REGISTER_PATCH(GainPatch, "Gain", 2, 2);
-  // REGISTER_PATCH(TemplatePatch, "Template", 0, 0);
+REGISTER_PATCH(AuxSendPatch, "AuxSend", 2, 2);
   REGISTER_PATCH(SimpleDelayPatch, "Simple Delay", 1, 1);
   REGISTER_PATCH(ParametricEqPatch, "Parametric EQ", 1, 1);
   REGISTER_PATCH(OverdrivePatch, "Overdrive", 2, 2);

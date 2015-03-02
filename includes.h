@@ -1,5 +1,5 @@
 #include "GainPatch.hpp"
-/* #include "TemplatePatch.hpp" */
+#include "AuxSendPatch.hpp"
 /* #include "SimpleDelayPatch.hpp" */
 #include "SimpleDriveDelayPatch.hpp"
 #include "ParametricEqPatch.hpp"
