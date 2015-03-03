@@ -103,4 +103,3 @@ REGISTER_PATCH(GuitarixDistortion1Patch, "Guitarix/Distortion1", 1, 1);
 // REGISTER_PATCH(WaveshaperPatch, "Waveshaper", 2, 2);
 // REGISTER_PATCH(TestTonePatch, "Test Tone", 0, 0);
 // REGISTER_PATCH(FlangerPatch, "Flanger", 0, 0);
->>>>>>> master

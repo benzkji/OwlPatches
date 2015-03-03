@@ -21,6 +21,8 @@
 
 /* created by the OWL team 2013 */
 
+/* AuxSendPatch by benzkji / bnzk.ch / 2015 */
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -38,7 +40,7 @@ public:
     registerParameter(PARAMETER_A, "Send");
     registerParameter(PARAMETER_B, "");    
     registerParameter(PARAMETER_C, "AutoLevel");    
-    registerParameter(PARAMETER_D, "Return");
+    registerParameter(PARAMETER_D, "Return / Mix");
     registerParameter(PARAMETER_E, "ExPedal Send");
   }
     
