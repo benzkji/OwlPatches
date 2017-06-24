@@ -1,18 +1,9 @@
-//-----------------------------------------------------
-//
-// Code generated with Faust 0.9.67 (http://faust.grame.fr)
-//-----------------------------------------------------
-/* link with  */
-#include <math.h>
-#ifndef FAUSTPOWER
-#define FAUSTPOWER
-#include <cmath>
-template <int N> inline float faustpower(float x)          { return powf(x,N); } 
-template <int N> inline double faustpower(double x)        { return pow(x,N); }
-template <int N> inline int faustpower(int x)              { return faustpower<N/2>(x) * faustpower<N-N/2>(x); } 
-template <> 	 inline int faustpower<0>(int x)            { return 1; }
-template <> 	 inline int faustpower<1>(int x)            { return x; }
-#endif
+/* ------------------------------------------------------------
+Code generated with Faust 2.0.a34 (http://faust.grame.fr)
+------------------------------------------------------------ */
+
+#ifndef  __AutoWah_H__
+#define  __AutoWah_H__
 /************************************************************************
 
 	IMPORTANT NOTE : this file contains two clearly delimited sections :
@@ -53,12 +44,6 @@ template <> 	 inline int faustpower<1>(int x)            { return x; }
 #define __AutoWahPatch_h__
 
 #include "StompBox.h"
-#include "owlcontrol.h"
-#include "ApplicationSettings.h"
-#include "CodecController.h"
-#include "PatchProcessor.h"
-#include "PatchController.h"
-#include "device.h"
 #include <cstddef>
 #include <string.h>
 #include <strings.h>
@@ -121,12 +106,14 @@ template <> 	 inline int faustpower<1>(int x)            { return x; }
 class UI;
 
 //----------------------------------------------------------------
-//  signal processor definition
+//  Signal processor definition
 //----------------------------------------------------------------
 
 class dsp {
+
  protected:
 	int fSamplingFreq;
+    
  public:
 	dsp() {}
 	virtual ~dsp() {}
@@ -220,7 +207,7 @@ struct Meta
 class OwlWidget
 {
   protected:
-	PatchProcessor* 	fProcessor;		// needed to register and read owl parameters
+	Patch* 	fPatch;		// needed to register and read owl parameters
 	PatchParameterId	fParameter;		// OWL parameter code : PARAMETER_A,...
 	FAUSTFLOAT* 		fZone;			// Faust widget zone
 	const char*			fLabel;			// Faust widget label 
@@ -229,13 +216,13 @@ class OwlWidget
 	
   public:
 	OwlWidget() :
-		fProcessor(0), fParameter(PARAMETER_A), fZone(0), fLabel(""), fMin(0), fSpan(1) {}
+		fPatch(0), fParameter(PARAMETER_A), fZone(0), fLabel(""), fMin(0), fSpan(1) {}
 	OwlWidget(const OwlWidget& w) :
-		fProcessor(w.fProcessor), fParameter(w.fParameter), fZone(w.fZone), fLabel(w.fLabel), fMin(w.fMin), fSpan(w.fSpan) {}
-	OwlWidget(PatchProcessor* pp, PatchParameterId param, FAUSTFLOAT* z, const char* l, float lo, float hi) :
-		fProcessor(pp), fParameter(param), fZone(z), fLabel(l), fMin(lo), fSpan(hi-lo) {}
-	void bind() 	{ fProcessor->registerParameter(fParameter, fLabel); }
-	void update()	{ *fZone = fMin + fSpan*fProcessor->getParameterValue(fParameter); }
+		fPatch(w.fPatch), fParameter(w.fParameter), fZone(w.fZone), fLabel(w.fLabel), fMin(w.fMin), fSpan(w.fSpan) {}
+	OwlWidget(Patch* pp, PatchParameterId param, FAUSTFLOAT* z, const char* l, float lo, float hi) :
+		fPatch(pp), fParameter(param), fZone(z), fLabel(l), fMin(lo), fSpan(hi-lo) {}
+	void bind() 	{ fPatch->registerParameter(fParameter, fLabel); }
+	void update()	{ *fZone = fMin + fSpan*fPatch->getParameterValue(fParameter); }
 	
 };
 
@@ -251,11 +238,11 @@ class OwlWidget
 ***************************************************************************************/
 
 // The maximun number of mappings between owl parameters and faust widgets 
-#define MAXOWLWIDGETS 64
+#define MAXOWLWIDGETS 8
 
 class OwlUI : public UI
 {
-	PatchProcessor* 	fProcessor;
+	Patch* 	fPatch;
 	PatchParameterId	fParameter;					// current parameter ID, value PARAMETER_F means not set
 	int					fIndex;						// number of OwlWidgets collected so far
 	OwlWidget			fTable[MAXOWLWIDGETS];		// kind of static list of OwlWidgets
@@ -263,7 +250,7 @@ class OwlUI : public UI
 	// check if the widget is an Owl parameter and, if so, add the corresponding OwlWidget
 	void addOwlWidget(const char* label, FAUSTFLOAT* zone, FAUSTFLOAT lo, FAUSTFLOAT hi) {
 		if ((fParameter >= PARAMETER_A) && (fParameter <= PARAMETER_E) && (fIndex < MAXOWLWIDGETS)) {
-			fTable[fIndex] = OwlWidget(fProcessor, fParameter, zone, label, lo, hi);
+			fTable[fIndex] = OwlWidget(fPatch, fParameter, zone, label, lo, hi);
 			fTable[fIndex].bind();
 			fIndex++;
 		}
@@ -277,7 +264,7 @@ class OwlUI : public UI
 
  public:
 
-	OwlUI(PatchProcessor* pp) : fProcessor(pp), fParameter(PARAMETER_F), fIndex(0) {}
+	OwlUI(Patch* pp) : fPatch(pp), fParameter(PARAMETER_F), fIndex(0) {}
 	
 	virtual ~OwlUI() {}
 	
@@ -330,117 +317,192 @@ class OwlUI : public UI
 #define FAUSTFLOAT float
 #endif  
 
-typedef long double quad;
+#include <math.h>
+
 
 #ifndef FAUSTCLASS 
 #define FAUSTCLASS AutoWah
 #endif
 
 class AutoWah : public dsp {
+	
   private:
-	int 	iConst0;
-	float 	fConst1;
-	float 	fRec2[2];
-	FAUSTFLOAT 	fslider0;
-	FAUSTFLOAT 	fslider1;
-	float 	fRec1[2];
-	float 	fConst2;
-	float 	fRec3[2];
-	float 	fConst3;
-	float 	fRec4[2];
-	float 	fRec0[3];
+	
+	float fRec0[3];
+	float fRec2[2];
+	float fRec1[2];
+	float fRec3[2];
+	float fRec4[2];
+	FAUSTFLOAT fHslider0;
+	FAUSTFLOAT fHslider1;
+	FAUSTFLOAT fHslider2;
+	int fSamplingFreq;
+	int iConst0;
+	float fConst1;
+	float fConst2;
+	float fConst3;
+	float fConst4;
+	
   public:
-	static void metadata(Meta* m) 	{ 
-		m->declare("music.lib/name", "Music Library");
-		m->declare("music.lib/author", "GRAME");
-		m->declare("music.lib/copyright", "GRAME");
-		m->declare("music.lib/version", "1.0");
-		m->declare("music.lib/license", "LGPL with exception");
-		m->declare("math.lib/name", "Math Library");
-		m->declare("math.lib/author", "GRAME");
-		m->declare("math.lib/copyright", "GRAME");
-		m->declare("math.lib/version", "1.0");
-		m->declare("math.lib/license", "LGPL with exception");
-		m->declare("effect.lib/name", "Faust Audio Effect Library");
+	
+	void static metadata(Meta* m) { 
 		m->declare("effect.lib/author", "Julius O. Smith (jos at ccrma.stanford.edu)");
 		m->declare("effect.lib/copyright", "Julius O. Smith III");
-		m->declare("effect.lib/version", "1.33");
-		m->declare("effect.lib/license", "STK-4.3");
-		m->declare("effect.lib/exciter_name", "Harmonic Exciter");
 		m->declare("effect.lib/exciter_author", "Priyanka Shekar (pshekar@ccrma.stanford.edu)");
 		m->declare("effect.lib/exciter_copyright", "Copyright (c) 2013 Priyanka Shekar");
-		m->declare("effect.lib/exciter_version", "1.0");
 		m->declare("effect.lib/exciter_license", "MIT License (MIT)");
-		m->declare("filter.lib/name", "Faust Filter Library");
+		m->declare("effect.lib/exciter_name", "Harmonic Exciter");
+		m->declare("effect.lib/exciter_version", "1.0");
+		m->declare("effect.lib/license", "STK-4.3");
+		m->declare("effect.lib/name", "Faust Audio Effect Library");
+		m->declare("effect.lib/version", "1.33");
 		m->declare("filter.lib/author", "Julius O. Smith (jos at ccrma.stanford.edu)");
 		m->declare("filter.lib/copyright", "Julius O. Smith III");
-		m->declare("filter.lib/version", "1.29");
 		m->declare("filter.lib/license", "STK-4.3");
+		m->declare("filter.lib/name", "Faust Filter Library");
 		m->declare("filter.lib/reference", "https://ccrma.stanford.edu/~jos/filters/");
-		m->declare("oscillator.lib/name", "Faust Oscillator Library");
-		m->declare("oscillator.lib/author", "Julius O. Smith (jos at ccrma.stanford.edu)");
-		m->declare("oscillator.lib/copyright", "Julius O. Smith III");
-		m->declare("oscillator.lib/version", "1.11");
-		m->declare("oscillator.lib/license", "STK-4.3");
+		m->declare("filter.lib/version", "1.29");
+		m->declare("math.lib/author", "GRAME");
+		m->declare("math.lib/copyright", "GRAME");
+		m->declare("math.lib/license", "LGPL with exception");
+		m->declare("math.lib/name", "Math Library");
+		m->declare("math.lib/version", "1.0");
+		m->declare("music.lib/author", "GRAME");
+		m->declare("music.lib/copyright", "GRAME");
+		m->declare("music.lib/license", "LGPL with exception");
+		m->declare("music.lib/name", "Music Library");
+		m->declare("music.lib/version", "1.0");
 	}
 
-	virtual int getNumInputs() 	{ return 1; }
-	virtual int getNumOutputs() 	{ return 1; }
-	static void classInit(int samplingFreq) {
+	virtual int getNumInputs() {
+		return 1;
+		
 	}
+	virtual int getNumOutputs() {
+		return 1;
+		
+	}
+	virtual int getInputRate(int channel) {
+		int rate;
+		switch (channel) {
+			case 0: {
+				rate = 1;
+				break;
+			}
+			default: {
+				rate = -1;
+				break;
+			}
+			
+		}
+		return rate;
+		
+	}
+	virtual int getOutputRate(int channel) {
+		int rate;
+		switch (channel) {
+			case 0: {
+				rate = 1;
+				break;
+			}
+			default: {
+				rate = -1;
+				break;
+			}
+			
+		}
+		return rate;
+		
+	}
+	
+	static void classInit(int samplingFreq) {
+		
+	}
+	
 	virtual void instanceInit(int samplingFreq) {
 		fSamplingFreq = samplingFreq;
+		fHslider0 = FAUSTFLOAT(1.);
+		fHslider1 = FAUSTFLOAT(0.);
+		fHslider2 = FAUSTFLOAT(0.6);
 		iConst0 = min(192000, max(1, fSamplingFreq));
-		fConst1 = (0.25f / float(iConst0));
-		for (int i=0; i<2; i++) fRec2[i] = 0;
-		fslider0 = 0.8f;
-		fslider1 = 0.8f;
-		for (int i=0; i<2; i++) fRec1[i] = 0;
-		fConst2 = (1413.7166941154069f / float(iConst0));
-		for (int i=0; i<2; i++) fRec3[i] = 0;
-		fConst3 = (2827.4333882308138f / float(iConst0));
-		for (int i=0; i<2; i++) fRec4[i] = 0;
-		for (int i=0; i<3; i++) fRec0[i] = 0;
+		fConst1 = (1413.72f / float(iConst0));
+		fConst2 = expf((0.f - (10.f / float(iConst0))));
+		fConst3 = (1.f - fConst2);
+		for (int i0 = 0; (i0 < 2); i0 = (i0 + 1)) {
+			fRec2[i0] = 0.f;
+			
+		}
+		fConst4 = (2827.43f / float(iConst0));
+		for (int i1 = 0; (i1 < 2); i1 = (i1 + 1)) {
+			fRec1[i1] = 0.f;
+			
+		}
+		for (int i2 = 0; (i2 < 2); i2 = (i2 + 1)) {
+			fRec3[i2] = 0.f;
+			
+		}
+		for (int i3 = 0; (i3 < 2); i3 = (i3 + 1)) {
+			fRec4[i3] = 0.f;
+			
+		}
+		for (int i4 = 0; (i4 < 3); i4 = (i4 + 1)) {
+			fRec0[i4] = 0.f;
+			
+		}
+		
 	}
+	
 	virtual void init(int samplingFreq) {
 		classInit(samplingFreq);
 		instanceInit(samplingFreq);
 	}
+	
 	virtual void buildUserInterface(UI* interface) {
-		interface->openVerticalBox("AutoWah");
-		interface->declare(&fslider0, "OWL", "PARAMETER_B");
-		interface->addHorizontalSlider("High", &fslider0, 0.8f, 0.0f, 1.0f, 0.01f);
-		interface->declare(&fslider1, "OWL", "PARAMETER_A");
-		interface->addHorizontalSlider("Low", &fslider1, 0.8f, 0.0f, 1.0f, 0.01f);
+		interface->openVerticalBox("0x00");
+		interface->declare(&fHslider0, "OWL", "PARAMETER_A");
+		interface->addHorizontalSlider("Gain", &fHslider0, 1.f, 0.f, 2.f, 0.0001f);
+		interface->declare(&fHslider1, "OWL", "PARAMETER_E");
+		interface->addHorizontalSlider("Super Wah", &fHslider1, 0.f, 0.f, 0.8f, 0.0001f);
+		interface->declare(&fHslider2, "OWL", "PARAMETER_D");
+		interface->addHorizontalSlider("Wah", &fHslider2, 0.6f, 0.f, 1.f, 0.0001f);
 		interface->closeBox();
+		
 	}
-	virtual void compute (int count, FAUSTFLOAT** input, FAUSTFLOAT** output) {
-		float 	fSlow0 = float(fslider0);
-		float 	fSlow1 = float(fslider1);
-		FAUSTFLOAT* input0 = input[0];
-		FAUSTFLOAT* output0 = output[0];
-		for (int i=0; i<count; i++) {
-			float fTemp0 = (float)input0[i];
-			fRec2[0] = fmodf((fConst1 + fRec2[1]),2.0f);
-			float fTemp1 = fabsf((fRec2[0] - 1.0f));
-			float fTemp2 = ((fSlow1 * fTemp1) + (fSlow0 * (1.0f - fTemp1)));
-			fRec1[0] = ((0.999f * fRec1[1]) + (0.0001000000000000001f * powf(4.0f,fTemp2)));
-			float fTemp3 = powf(2.0f,(2.3f * fTemp2));
-			float fTemp4 = (1 - (fConst2 * (fTemp3 / powf(2.0f,(1.0f + (2.0f * (0 - (fTemp2 - 1.0f))))))));
-			fRec3[0] = ((0.999f * fRec3[1]) + (0.0010000000000000009f * faustpower<2>(fTemp4)));
-			fRec4[0] = ((0.999f * fRec4[1]) + (0.0010000000000000009f * (0 - (2.0f * (fTemp4 * cosf((fConst3 * fTemp3)))))));
-			fRec0[0] = (0 - (((fRec4[0] * fRec0[1]) + (fRec3[0] * fRec0[2])) - (fTemp0 * fRec1[0])));
-			output0[i] = (FAUSTFLOAT)(fRec0[0] - fRec0[1]);
-			// post processing
-			fRec0[2] = fRec0[1]; fRec0[1] = fRec0[0];
-			fRec4[1] = fRec4[0];
-			fRec3[1] = fRec3[0];
-			fRec1[1] = fRec1[0];
+	
+	virtual void compute(int count, FAUSTFLOAT** inputs, FAUSTFLOAT** outputs) {
+		FAUSTFLOAT* input0 = inputs[0];
+		FAUSTFLOAT* output0 = outputs[0];
+		float fSlow0 = float(fHslider0);
+		float fSlow1 = (float(fHslider1) + float(fHslider2));
+		float fSlow2 = (0.f - (fSlow1 - 1.f));
+		for (int i = 0; (i < count); i = (i + 1)) {
+			float fTemp0 = float(input0[i]);
+			float fTemp1 = fabsf(fTemp0);
+			fRec2[0] = max(fTemp1, ((fConst2 * fRec2[1]) + (fConst3 * fTemp1)));
+			float fTemp2 = powf(2.f, (2.3f * fRec2[0]));
+			float fTemp3 = (1.f - (fConst1 * (fTemp2 / powf(2.f, (1.f + (2.f * (1.f - fRec2[0])))))));
+			fRec1[0] = ((0.999f * fRec1[1]) + (0.001f * (0.f - (2.f * (fTemp3 * cosf((fConst4 * fTemp2)))))));
+			fRec3[0] = ((0.999f * fRec3[1]) + (0.001f * faustpower2_f(fTemp3)));
+			fRec4[0] = ((0.999f * fRec4[1]) + (0.0001f * powf(4.f, fRec2[0])));
+			fRec0[0] = (0.f - (((fRec1[0] * fRec0[1]) + (fRec3[0] * fRec0[2])) - (fRec4[0] * fTemp0)));
+			output0[i] = FAUSTFLOAT((fSlow0 * ((fSlow1 * (fRec0[0] - fRec0[1])) + (fSlow2 * fTemp0))));
 			fRec2[1] = fRec2[0];
+			fRec1[1] = fRec1[0];
+			fRec3[1] = fRec3[0];
+			fRec4[1] = fRec4[0];
+			fRec0[2] = fRec0[1];
+			fRec0[1] = fRec0[0];
+			
 		}
+		
 	}
-};
 
+float faustpower2_f(float value) {
+	return (value * value);
+	
+}
+	
+};
 
 
 /***************************END USER SECTION ***************************/
@@ -462,7 +524,7 @@ class AutoWahPatch : public Patch
     
 public:
 
-    AutoWahPatch() : fUI(patches.getCurrentPatchProcessor())
+    AutoWahPatch() : fUI(this)
     {
         fDSP.init(int(getSampleRate()));		// Init Faust code with the OWL sampling rate
         fDSP.buildUserInterface(&fUI);			// Maps owl parameters and faust widgets 
@@ -501,3 +563,5 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#endif

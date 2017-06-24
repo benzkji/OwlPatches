@@ -50,6 +50,9 @@
 
 // for vibrato, turn C and D all the way down
 
+#ifndef TWOPI 
+#define TWOPI 6.2831853f
+#endif /* TWOPI */
 
 class BaseOscillator {
 public:
@@ -59,7 +62,7 @@ public:
 	
 
 	BaseOscillator() {
-		setSampleRate(44100);
+		setSampleRate(48000);
 		frequency = 440;
 	}
 
@@ -160,6 +163,7 @@ public:
 	
 	VibroFlangePatch() {
 		lfo = new SinOscillator();
+		lfo->setSampleRate(getSampleRate());
 		lfo->frequency = 0.5;
 		depth = 0;
 		inPos = 0;

@@ -27,9 +27,6 @@
 #ifndef __ParametricEqPatch_hpp__
 #define __ParametricEqPatch_hpp__
 
-#include "StompBox.h"
-#include <math.h>
-
 /**
  * Biquad Parametric EQ filter class
  */
@@ -102,13 +99,13 @@ private:
 class ParametricEqPatch : public Patch {
 public:
   ParametricEqPatch() {
-    registerParameter(PARAMETER_A, "Freq", "Freq");
-    registerParameter(PARAMETER_B, "Q", "Q");
-    registerParameter(PARAMETER_C, "Gain", "Gain");
-    registerParameter(PARAMETER_D, "");
-    registerParameter(PARAMETER_E, "FreqPedal", "FreqPedal");
-    peq.initStateVariables();
-    peq.setCoeffsPEQ(getFrequency()/getSampleRate(), getQ(), getDbGain()) ;
+    registerParameter(PARAMETER_A, "Freq");
+    registerParameter(PARAMETER_B, "Q");
+    registerParameter(PARAMETER_C, "");
+    registerParameter(PARAMETER_D, "Gain");
+    registerParameter(PARAMETER_E, "FreqPedal");
+    peqL.initStateVariables();
+    peqR.initStateVariables();
   }    
 
   void processAudio(AudioBuffer &buffer){
@@ -116,16 +113,20 @@ public:
     float fn = getFrequency()/getSampleRate();
     float Q = getQ();
     float g = getDbGain();
-    peq.setCoeffsPEQ(fn, Q, g) ;
+    peqL.setCoeffsPEQ(fn, Q, g) ;
+    peqR.setCoeffsPEQ(fn, Q, g) ;
       
     // process
-    float* buf = buffer.getSamples(0);
-    peq.process(buffer.getSize(), buf);
-
+    int size = buffer.getSize();
+    float* left = buffer.getSamples(0);
+    peqL.process(size, left);
+    float* right = buffer.getSamples(1);
+    peqR.process(size, right);
   }
     
 private:
-  Biquad1 peq ; // PEQ filter
+  Biquad1 peqL ; // PEQ filter
+  Biquad1 peqR ; // PEQ filter
 
   float getFrequency() {
     float f = getParameterValue(PARAMETER_A)+getParameterValue(PARAMETER_E)/2;
@@ -143,7 +144,7 @@ private:
   }
     
   float getDbGain(){
-    float linGain = getParameterValue(PARAMETER_C);
+    float linGain = getParameterValue(PARAMETER_D);
     // linGain = 0    <-> -15 dB
     // linGain = 0.5  <-> 0dB
     // linGain = 1    <-> 15dB

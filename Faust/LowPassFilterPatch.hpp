@@ -1,9 +1,9 @@
-//-----------------------------------------------------
-//
-// Code generated with Faust 0.9.67 (http://faust.grame.fr)
-//-----------------------------------------------------
-/* link with  */
-#include <math.h>
+/* ------------------------------------------------------------
+Code generated with Faust 2.0.a34 (http://faust.grame.fr)
+------------------------------------------------------------ */
+
+#ifndef  __LowPassFilter_H__
+#define  __LowPassFilter_H__
 /************************************************************************
 
 	IMPORTANT NOTE : this file contains two clearly delimited sections :
@@ -44,12 +44,6 @@
 #define __LowPassFilterPatch_h__
 
 #include "StompBox.h"
-#include "owlcontrol.h"
-#include "ApplicationSettings.h"
-#include "CodecController.h"
-#include "PatchProcessor.h"
-#include "PatchController.h"
-#include "device.h"
 #include <cstddef>
 #include <string.h>
 #include <strings.h>
@@ -112,12 +106,14 @@
 class UI;
 
 //----------------------------------------------------------------
-//  signal processor definition
+//  Signal processor definition
 //----------------------------------------------------------------
 
 class dsp {
+
  protected:
 	int fSamplingFreq;
+    
  public:
 	dsp() {}
 	virtual ~dsp() {}
@@ -211,7 +207,7 @@ struct Meta
 class OwlWidget
 {
   protected:
-	PatchProcessor* 	fProcessor;		// needed to register and read owl parameters
+	Patch* 	fPatch;		// needed to register and read owl parameters
 	PatchParameterId	fParameter;		// OWL parameter code : PARAMETER_A,...
 	FAUSTFLOAT* 		fZone;			// Faust widget zone
 	const char*			fLabel;			// Faust widget label 
@@ -220,13 +216,13 @@ class OwlWidget
 	
   public:
 	OwlWidget() :
-		fProcessor(0), fParameter(PARAMETER_A), fZone(0), fLabel(""), fMin(0), fSpan(1) {}
+		fPatch(0), fParameter(PARAMETER_A), fZone(0), fLabel(""), fMin(0), fSpan(1) {}
 	OwlWidget(const OwlWidget& w) :
-		fProcessor(w.fProcessor), fParameter(w.fParameter), fZone(w.fZone), fLabel(w.fLabel), fMin(w.fMin), fSpan(w.fSpan) {}
-	OwlWidget(PatchProcessor* pp, PatchParameterId param, FAUSTFLOAT* z, const char* l, float lo, float hi) :
-		fProcessor(pp), fParameter(param), fZone(z), fLabel(l), fMin(lo), fSpan(hi-lo) {}
-	void bind() 	{ fProcessor->registerParameter(fParameter, fLabel); }
-	void update()	{ *fZone = fMin + fSpan*fProcessor->getParameterValue(fParameter); }
+		fPatch(w.fPatch), fParameter(w.fParameter), fZone(w.fZone), fLabel(w.fLabel), fMin(w.fMin), fSpan(w.fSpan) {}
+	OwlWidget(Patch* pp, PatchParameterId param, FAUSTFLOAT* z, const char* l, float lo, float hi) :
+		fPatch(pp), fParameter(param), fZone(z), fLabel(l), fMin(lo), fSpan(hi-lo) {}
+	void bind() 	{ fPatch->registerParameter(fParameter, fLabel); }
+	void update()	{ *fZone = fMin + fSpan*fPatch->getParameterValue(fParameter); }
 	
 };
 
@@ -242,11 +238,11 @@ class OwlWidget
 ***************************************************************************************/
 
 // The maximun number of mappings between owl parameters and faust widgets 
-#define MAXOWLWIDGETS 64
+#define MAXOWLWIDGETS 8
 
 class OwlUI : public UI
 {
-	PatchProcessor* 	fProcessor;
+	Patch* 	fPatch;
 	PatchParameterId	fParameter;					// current parameter ID, value PARAMETER_F means not set
 	int					fIndex;						// number of OwlWidgets collected so far
 	OwlWidget			fTable[MAXOWLWIDGETS];		// kind of static list of OwlWidgets
@@ -254,7 +250,7 @@ class OwlUI : public UI
 	// check if the widget is an Owl parameter and, if so, add the corresponding OwlWidget
 	void addOwlWidget(const char* label, FAUSTFLOAT* zone, FAUSTFLOAT lo, FAUSTFLOAT hi) {
 		if ((fParameter >= PARAMETER_A) && (fParameter <= PARAMETER_E) && (fIndex < MAXOWLWIDGETS)) {
-			fTable[fIndex] = OwlWidget(fProcessor, fParameter, zone, label, lo, hi);
+			fTable[fIndex] = OwlWidget(fPatch, fParameter, zone, label, lo, hi);
 			fTable[fIndex].bind();
 			fIndex++;
 		}
@@ -268,7 +264,7 @@ class OwlUI : public UI
 
  public:
 
-	OwlUI(PatchProcessor* pp) : fProcessor(pp), fParameter(PARAMETER_F), fIndex(0) {}
+	OwlUI(Patch* pp) : fPatch(pp), fParameter(PARAMETER_F), fIndex(0) {}
 	
 	virtual ~OwlUI() {}
 	
@@ -321,83 +317,141 @@ class OwlUI : public UI
 #define FAUSTFLOAT float
 #endif  
 
-typedef long double quad;
+#include <math.h>
+
 
 #ifndef FAUSTCLASS 
 #define FAUSTCLASS LowPassFilter
 #endif
 
 class LowPassFilter : public dsp {
+	
   private:
-	FAUSTFLOAT 	fslider0;
-	FAUSTFLOAT 	fslider1;
-	float 	fConst0;
-	float 	fRec0[3];
+	
+	float fRec0[3];
+	int fSamplingFreq;
+	float fConst0;
+	FAUSTFLOAT fHslider0;
+	FAUSTFLOAT fHslider1;
+	
   public:
-	static void metadata(Meta* m) 	{ 
-		m->declare("maxmsp.lib/name", "MaxMSP compatibility Library");
-		m->declare("maxmsp.lib/author", "GRAME");
-		m->declare("maxmsp.lib/copyright", "GRAME");
-		m->declare("maxmsp.lib/version", "1.1");
-		m->declare("maxmsp.lib/license", "LGPL");
-		m->declare("music.lib/name", "Music Library");
-		m->declare("music.lib/author", "GRAME");
-		m->declare("music.lib/copyright", "GRAME");
-		m->declare("music.lib/version", "1.0");
-		m->declare("music.lib/license", "LGPL with exception");
-		m->declare("math.lib/name", "Math Library");
+	
+	void static metadata(Meta* m) { 
 		m->declare("math.lib/author", "GRAME");
 		m->declare("math.lib/copyright", "GRAME");
-		m->declare("math.lib/version", "1.0");
 		m->declare("math.lib/license", "LGPL with exception");
+		m->declare("math.lib/name", "Math Library");
+		m->declare("math.lib/version", "1.0");
+		m->declare("maxmsp.lib/author", "GRAME");
+		m->declare("maxmsp.lib/copyright", "GRAME");
+		m->declare("maxmsp.lib/license", "LGPL");
+		m->declare("maxmsp.lib/name", "MaxMSP compatibility Library");
+		m->declare("maxmsp.lib/version", "1.1");
+		m->declare("music.lib/author", "GRAME");
+		m->declare("music.lib/copyright", "GRAME");
+		m->declare("music.lib/license", "LGPL with exception");
+		m->declare("music.lib/name", "Music Library");
+		m->declare("music.lib/version", "1.0");
 	}
 
-	virtual int getNumInputs() 	{ return 1; }
-	virtual int getNumOutputs() 	{ return 1; }
-	static void classInit(int samplingFreq) {
+	virtual int getNumInputs() {
+		return 1;
+		
 	}
+	virtual int getNumOutputs() {
+		return 1;
+		
+	}
+	virtual int getInputRate(int channel) {
+		int rate;
+		switch (channel) {
+			case 0: {
+				rate = 1;
+				break;
+			}
+			default: {
+				rate = -1;
+				break;
+			}
+			
+		}
+		return rate;
+		
+	}
+	virtual int getOutputRate(int channel) {
+		int rate;
+		switch (channel) {
+			case 0: {
+				rate = 1;
+				break;
+			}
+			default: {
+				rate = -1;
+				break;
+			}
+			
+		}
+		return rate;
+		
+	}
+	
+	static void classInit(int samplingFreq) {
+		
+	}
+	
 	virtual void instanceInit(int samplingFreq) {
 		fSamplingFreq = samplingFreq;
-		fslider0 = 1.0f;
-		fslider1 = 1e+03f;
-		fConst0 = (6.283185307179586f / float(min(192000, max(1, fSamplingFreq))));
-		for (int i=0; i<3; i++) fRec0[i] = 0;
+		fConst0 = (6.28319f / float(min(192000, max(1, fSamplingFreq))));
+		fHslider0 = FAUSTFLOAT(1000.);
+		fHslider1 = FAUSTFLOAT(1.);
+		for (int i0 = 0; (i0 < 3); i0 = (i0 + 1)) {
+			fRec0[i0] = 0.f;
+			
+		}
+		
 	}
+	
 	virtual void init(int samplingFreq) {
 		classInit(samplingFreq);
 		instanceInit(samplingFreq);
 	}
+	
 	virtual void buildUserInterface(UI* interface) {
-		interface->openVerticalBox("LowPassFilter");
-		interface->declare(&fslider1, "OWL", "PARAMETER_B");
-		interface->declare(&fslider1, "style", "knob");
-		interface->addHorizontalSlider("Freq", &fslider1, 1e+03f, 1e+02f, 1e+04f, 1.0f);
-		interface->declare(&fslider0, "OWL", "PARAMETER_C");
-		interface->declare(&fslider0, "style", "knob");
-		interface->addHorizontalSlider("Q", &fslider0, 1.0f, 0.01f, 1e+02f, 0.01f);
+		interface->openVerticalBox("0x00");
+		interface->declare(&fHslider0, "OWL", "PARAMETER_B");
+		interface->declare(&fHslider0, "style", "knob");
+		interface->addHorizontalSlider("Freq", &fHslider0, 1000.f, 100.f, 10000.f, 1.f);
+		interface->declare(&fHslider1, "OWL", "PARAMETER_C");
+		interface->declare(&fHslider1, "style", "knob");
+		interface->addHorizontalSlider("Q", &fHslider1, 1.f, 0.01f, 100.f, 0.01f);
 		interface->closeBox();
+		
 	}
-	virtual void compute (int count, FAUSTFLOAT** input, FAUSTFLOAT** output) {
-		float 	fSlow0 = (fConst0 * max((float)0, float(fslider1)));
-		float 	fSlow1 = (0.5f * (sinf(fSlow0) / max(0.001f, float(fslider0))));
-		float 	fSlow2 = (1 - fSlow1);
-		float 	fSlow3 = cosf(fSlow0);
-		float 	fSlow4 = (0 - (2 * fSlow3));
-		float 	fSlow5 = (1 + fSlow1);
-		float 	fSlow6 = (1.0f / fSlow5);
-		float 	fSlow7 = ((1 - fSlow3) / fSlow5);
-		FAUSTFLOAT* input0 = input[0];
-		FAUSTFLOAT* output0 = output[0];
-		for (int i=0; i<count; i++) {
-			float fTemp0 = (float)input0[i];
-			fRec0[0] = (fTemp0 - (fSlow6 * ((fSlow4 * fRec0[1]) + (fSlow2 * fRec0[2]))));
-			output0[i] = (FAUSTFLOAT)(fSlow7 * ((fRec0[1] + (0.5f * fRec0[0])) + (0.5f * fRec0[2])));
-			// post processing
-			fRec0[2] = fRec0[1]; fRec0[1] = fRec0[0];
+	
+	virtual void compute(int count, FAUSTFLOAT** inputs, FAUSTFLOAT** outputs) {
+		FAUSTFLOAT* input0 = inputs[0];
+		FAUSTFLOAT* output0 = outputs[0];
+		float fSlow0 = (fConst0 * max(0.f, float(fHslider0)));
+		float fSlow1 = cosf(fSlow0);
+		float fSlow2 = (0.5f * (sinf(fSlow0) / max(0.001f, float(fHslider1))));
+		float fSlow3 = (1.f + fSlow2);
+		float fSlow4 = ((1.f - fSlow1) / fSlow3);
+		float fSlow5 = (1.f / fSlow3);
+		float fSlow6 = (0.f - (2.f * fSlow1));
+		float fSlow7 = (1.f - fSlow2);
+		for (int i = 0; (i < count); i = (i + 1)) {
+			float fTemp0 = float(input0[i]);
+			fRec0[0] = (fTemp0 - (fSlow5 * ((fSlow6 * fRec0[1]) + (fSlow7 * fRec0[2]))));
+			output0[i] = FAUSTFLOAT((fSlow4 * ((fRec0[1] + (0.5f * fRec0[0])) + (0.5f * fRec0[2]))));
+			fRec0[2] = fRec0[1];
+			fRec0[1] = fRec0[0];
+			
 		}
+		
 	}
-};
 
+	
+};
 
 
 /***************************END USER SECTION ***************************/
@@ -419,7 +473,7 @@ class LowPassFilterPatch : public Patch
     
 public:
 
-    LowPassFilterPatch() : fUI(patches.getCurrentPatchProcessor())
+    LowPassFilterPatch() : fUI(this)
     {
         fDSP.init(int(getSampleRate()));		// Init Faust code with the OWL sampling rate
         fDSP.buildUserInterface(&fUI);			// Maps owl parameters and faust widgets 
@@ -458,3 +512,5 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#endif

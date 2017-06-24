@@ -1,8 +1,9 @@
-//-----------------------------------------------------
-//
-// Code generated with Faust 0.9.67 (http://faust.grame.fr)
-//-----------------------------------------------------
-/* link with  */
+/* ------------------------------------------------------------
+Code generated with Faust 2.0.a34 (http://faust.grame.fr)
+------------------------------------------------------------ */
+
+#ifndef  __StereoEcho_H__
+#define  __StereoEcho_H__
 /************************************************************************
 
 	IMPORTANT NOTE : this file contains two clearly delimited sections :
@@ -43,12 +44,6 @@
 #define __StereoEchoPatch_h__
 
 #include "StompBox.h"
-#include "owlcontrol.h"
-#include "ApplicationSettings.h"
-#include "CodecController.h"
-#include "PatchProcessor.h"
-#include "PatchController.h"
-#include "device.h"
 #include <cstddef>
 #include <string.h>
 #include <strings.h>
@@ -111,12 +106,14 @@
 class UI;
 
 //----------------------------------------------------------------
-//  signal processor definition
+//  Signal processor definition
 //----------------------------------------------------------------
 
 class dsp {
+
  protected:
 	int fSamplingFreq;
+    
  public:
 	dsp() {}
 	virtual ~dsp() {}
@@ -210,7 +207,7 @@ struct Meta
 class OwlWidget
 {
   protected:
-	PatchProcessor* 	fProcessor;		// needed to register and read owl parameters
+	Patch* 	fPatch;		// needed to register and read owl parameters
 	PatchParameterId	fParameter;		// OWL parameter code : PARAMETER_A,...
 	FAUSTFLOAT* 		fZone;			// Faust widget zone
 	const char*			fLabel;			// Faust widget label 
@@ -219,13 +216,13 @@ class OwlWidget
 	
   public:
 	OwlWidget() :
-		fProcessor(0), fParameter(PARAMETER_A), fZone(0), fLabel(""), fMin(0), fSpan(1) {}
+		fPatch(0), fParameter(PARAMETER_A), fZone(0), fLabel(""), fMin(0), fSpan(1) {}
 	OwlWidget(const OwlWidget& w) :
-		fProcessor(w.fProcessor), fParameter(w.fParameter), fZone(w.fZone), fLabel(w.fLabel), fMin(w.fMin), fSpan(w.fSpan) {}
-	OwlWidget(PatchProcessor* pp, PatchParameterId param, FAUSTFLOAT* z, const char* l, float lo, float hi) :
-		fProcessor(pp), fParameter(param), fZone(z), fLabel(l), fMin(lo), fSpan(hi-lo) {}
-	void bind() 	{ fProcessor->registerParameter(fParameter, fLabel); }
-	void update()	{ *fZone = fMin + fSpan*fProcessor->getParameterValue(fParameter); }
+		fPatch(w.fPatch), fParameter(w.fParameter), fZone(w.fZone), fLabel(w.fLabel), fMin(w.fMin), fSpan(w.fSpan) {}
+	OwlWidget(Patch* pp, PatchParameterId param, FAUSTFLOAT* z, const char* l, float lo, float hi) :
+		fPatch(pp), fParameter(param), fZone(z), fLabel(l), fMin(lo), fSpan(hi-lo) {}
+	void bind() 	{ fPatch->registerParameter(fParameter, fLabel); }
+	void update()	{ *fZone = fMin + fSpan*fPatch->getParameterValue(fParameter); }
 	
 };
 
@@ -241,11 +238,11 @@ class OwlWidget
 ***************************************************************************************/
 
 // The maximun number of mappings between owl parameters and faust widgets 
-#define MAXOWLWIDGETS 64
+#define MAXOWLWIDGETS 8
 
 class OwlUI : public UI
 {
-	PatchProcessor* 	fProcessor;
+	Patch* 	fPatch;
 	PatchParameterId	fParameter;					// current parameter ID, value PARAMETER_F means not set
 	int					fIndex;						// number of OwlWidgets collected so far
 	OwlWidget			fTable[MAXOWLWIDGETS];		// kind of static list of OwlWidgets
@@ -253,7 +250,7 @@ class OwlUI : public UI
 	// check if the widget is an Owl parameter and, if so, add the corresponding OwlWidget
 	void addOwlWidget(const char* label, FAUSTFLOAT* zone, FAUSTFLOAT lo, FAUSTFLOAT hi) {
 		if ((fParameter >= PARAMETER_A) && (fParameter <= PARAMETER_E) && (fIndex < MAXOWLWIDGETS)) {
-			fTable[fIndex] = OwlWidget(fProcessor, fParameter, zone, label, lo, hi);
+			fTable[fIndex] = OwlWidget(fPatch, fParameter, zone, label, lo, hi);
 			fTable[fIndex].bind();
 			fIndex++;
 		}
@@ -267,7 +264,7 @@ class OwlUI : public UI
 
  public:
 
-	OwlUI(PatchProcessor* pp) : fProcessor(pp), fParameter(PARAMETER_F), fIndex(0) {}
+	OwlUI(Patch* pp) : fPatch(pp), fParameter(PARAMETER_F), fIndex(0) {}
 	
 	virtual ~OwlUI() {}
 	
@@ -320,67 +317,134 @@ class OwlUI : public UI
 #define FAUSTFLOAT float
 #endif  
 
-typedef long double quad;
+
 
 #ifndef FAUSTCLASS 
 #define FAUSTCLASS StereoEcho
 #endif
 
 class StereoEcho : public dsp {
+	
   private:
-	FAUSTFLOAT 	fslider0;
-	FAUSTFLOAT 	fslider1;
-	int 	IOTA;
-	float 	fRec0[65536];
-	float 	fRec1[65536];
+	
+	float fRec0[65536];
+	float fRec1[65536];
+	FAUSTFLOAT fHslider0;
+	FAUSTFLOAT fHslider1;
+	int IOTA;
+	int fSamplingFreq;
+	
   public:
-	static void metadata(Meta* m) 	{ 
+	
+	void static metadata(Meta* m) { 
 	}
 
-	virtual int getNumInputs() 	{ return 2; }
-	virtual int getNumOutputs() 	{ return 2; }
-	static void classInit(int samplingFreq) {
+	virtual int getNumInputs() {
+		return 2;
+		
 	}
+	virtual int getNumOutputs() {
+		return 2;
+		
+	}
+	virtual int getInputRate(int channel) {
+		int rate;
+		switch (channel) {
+			case 0: {
+				rate = 1;
+				break;
+			}
+			case 1: {
+				rate = 1;
+				break;
+			}
+			default: {
+				rate = -1;
+				break;
+			}
+			
+		}
+		return rate;
+		
+	}
+	virtual int getOutputRate(int channel) {
+		int rate;
+		switch (channel) {
+			case 0: {
+				rate = 1;
+				break;
+			}
+			case 1: {
+				rate = 1;
+				break;
+			}
+			default: {
+				rate = -1;
+				break;
+			}
+			
+		}
+		return rate;
+		
+	}
+	
+	static void classInit(int samplingFreq) {
+		
+	}
+	
 	virtual void instanceInit(int samplingFreq) {
 		fSamplingFreq = samplingFreq;
-		fslider0 = 0.0f;
-		fslider1 = 0.0f;
+		fHslider0 = FAUSTFLOAT(0.);
+		fHslider1 = FAUSTFLOAT(0.);
 		IOTA = 0;
-		for (int i=0; i<65536; i++) fRec0[i] = 0;
-		for (int i=0; i<65536; i++) fRec1[i] = 0;
+		for (int i0 = 0; (i0 < 65536); i0 = (i0 + 1)) {
+			fRec0[i0] = 0.f;
+			
+		}
+		for (int i1 = 0; (i1 < 65536); i1 = (i1 + 1)) {
+			fRec1[i1] = 0.f;
+			
+		}
+		
 	}
+	
 	virtual void init(int samplingFreq) {
 		classInit(samplingFreq);
 		instanceInit(samplingFreq);
 	}
+	
 	virtual void buildUserInterface(UI* interface) {
 		interface->openVerticalBox("stereoecho");
-		interface->declare(&fslider0, "OWL", "PARAMETER_A");
-		interface->addHorizontalSlider("Delay", &fslider0, 0.0f, 0.0f, 1e+03f, 0.1f);
-		interface->declare(&fslider1, "OWL", "PARAMETER_B");
-		interface->addHorizontalSlider("Feedback", &fslider1, 0.0f, 0.0f, 1.0f, 0.01f);
+		interface->declare(&fHslider1, "OWL", "PARAMETER_A");
+		interface->addHorizontalSlider("Delay", &fHslider1, 0.f, 0.f, 1000.f, 0.1f);
+		interface->declare(&fHslider0, "OWL", "PARAMETER_B");
+		interface->addHorizontalSlider("Feedback", &fHslider0, 0.f, 0.f, 1.f, 0.01f);
 		interface->closeBox();
+		
 	}
-	virtual void compute (int count, FAUSTFLOAT** input, FAUSTFLOAT** output) {
-		int 	iSlow0 = int((1 + int((48 * float(fslider0)))));
-		float 	fSlow1 = float(fslider1);
-		FAUSTFLOAT* input0 = input[0];
-		FAUSTFLOAT* input1 = input[1];
-		FAUSTFLOAT* output0 = output[0];
-		FAUSTFLOAT* output1 = output[1];
-		for (int i=0; i<count; i++) {
-			float fTemp0 = (float)input0[i];
-			float fTemp1 = (float)input1[i];
-			fRec0[IOTA&65535] = (fTemp0 + (fSlow1 * fRec0[(IOTA-iSlow0)&65535]));
-			output0[i] = (FAUSTFLOAT)fRec0[(IOTA-0)&65535];
-			fRec1[IOTA&65535] = (fTemp1 + (fSlow1 * fRec1[(IOTA-iSlow0)&65535]));
-			output1[i] = (FAUSTFLOAT)fRec1[(IOTA-0)&65535];
-			// post processing
-			IOTA = IOTA+1;
+	
+	virtual void compute(int count, FAUSTFLOAT** inputs, FAUSTFLOAT** outputs) {
+		FAUSTFLOAT* input0 = inputs[0];
+		FAUSTFLOAT* input1 = inputs[1];
+		FAUSTFLOAT* output0 = outputs[0];
+		FAUSTFLOAT* output1 = outputs[1];
+		float fSlow0 = float(fHslider0);
+		int iSlow1 = int((1 + int((48.f * float(fHslider1)))));
+		for (int i = 0; (i < count); i = (i + 1)) {
+			float fTemp0 = float(input0[i]);
+			float fTemp1 = float(input1[i]);
+			fRec0[(IOTA & 65535)] = ((fSlow0 * fRec0[((IOTA - iSlow1) & 65535)]) + fTemp0);
+			output0[i] = FAUSTFLOAT(fRec0[((IOTA - 0) & 65535)]);
+			fRec1[(IOTA & 65535)] = ((fSlow0 * fRec1[((IOTA - iSlow1) & 65535)]) + fTemp1);
+			output1[i] = FAUSTFLOAT(fRec1[((IOTA - 0) & 65535)]);
+			IOTA = (IOTA + 1);
+			
 		}
+		
 	}
-};
 
+	
+};
 
 
 /***************************END USER SECTION ***************************/
@@ -402,7 +466,7 @@ class StereoEchoPatch : public Patch
     
 public:
 
-    StereoEchoPatch() : fUI(patches.getCurrentPatchProcessor())
+    StereoEchoPatch() : fUI(this)
     {
         fDSP.init(int(getSampleRate()));		// Init Faust code with the OWL sampling rate
         fDSP.buildUserInterface(&fUI);			// Maps owl parameters and faust widgets 
@@ -441,3 +505,5 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#endif
